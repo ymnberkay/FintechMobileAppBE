@@ -1,0 +1,6 @@
+@TechMobileBE_HostAddress = http://localhost:5245
+
+GET {{TechMobileBE_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
