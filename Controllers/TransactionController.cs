@@ -23,9 +23,10 @@ namespace TechMobileBE.Controllers
             var transaction = await _transactionService.GetUserTransaction(userId);
             if (transaction == null)
             {
-                return NotFound();
+                return NotFound(new ApiResponse<object>(false, "Personal transactions not found."));
             }
-            return Ok(transaction);
+            var response = new ApiResidenceResponse<object>(true, "Personal transactions fetched successfully.", transaction);
+            return Ok(response);
         }
         
 
@@ -43,11 +44,16 @@ namespace TechMobileBE.Controllers
                 Type = transactionDto.Type,
                 Amount = transactionDto.Amount,
                 Currency = transactionDto.Currency,
-                ToUserId = transactionDto.ToUserId
+                ToUserId = transactionDto.ToUserId,
+                ToUserName = transactionDto.ToUserName,
+                ToUserEmail = transactionDto.ToUserEmail,
             };
 
-            var createdTransaction = await _transactionService.createTransactionAsync(transaction);
-            return CreatedAtAction(nameof(GetUserTransaction), new { userId = createdTransaction.UserId }, createdTransaction);
+            var result = await _transactionService.CreateTransaction(transaction);
+            if (!result.Success)
+                return BadRequest(result.Message);
+
+            return CreatedAtAction(nameof(GetUserTransaction), new { userId = result.Transaction.UserId }, result.Transaction);
         }
     }
 }

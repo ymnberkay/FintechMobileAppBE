@@ -8,13 +8,13 @@ namespace TechMobileBE.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = null!;
+        public string? Id { get; set; }
 
         [BsonElement("userId")]
         public string UserId { get; set; } = null!;
 
         [BsonElement("type")]
-        public string Type { get; set; } = null!; // deposit, withdrawal, transfer
+        public string Type { get; set; } = null!;
 
         [BsonElement("amount")]
         public decimal Amount { get; set; }
@@ -28,6 +28,12 @@ namespace TechMobileBE.Models
         [BsonElement("toUserId")]
         public string? ToUserId { get; set; }
 
+        [BsonElement("toUserName")]
+        public string? ToUserName { get; set; }
+
+        [BsonElement("ToUserEmail")]
+        public string? ToUserEmail { get; set; }
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -35,9 +41,9 @@ namespace TechMobileBE.Models
 
     public enum TransactionType
     {
-        Deposit,
-        Withdraw,
-        Transfer
+        Personal,
+        Business,
+        Payment
     }
 
     public enum TransactionStatus

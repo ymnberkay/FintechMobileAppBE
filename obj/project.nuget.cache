@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "eq5ZJhrJO3M=",
+  "dgSpecHash": "e1Bzs9xik+Q=",
   "success": true,
   "projectFilePath": "/Users/berkayyaman/Desktop/TechMobileBE/TechMobileBE.csproj",
   "expectedPackageFiles": [
@@ -49,8 +49,8 @@
     "/Users/berkayyaman/.nuget/packages/microsoft.netcore.platforms/5.0.0/microsoft.netcore.platforms.5.0.0.nupkg.sha512",
     "/Users/berkayyaman/.nuget/packages/microsoft.openapi/1.6.23/microsoft.openapi.1.6.23.nupkg.sha512",
     "/Users/berkayyaman/.nuget/packages/microsoft.win32.registry/5.0.0/microsoft.win32.registry.5.0.0.nupkg.sha512",
-    "/Users/berkayyaman/.nuget/packages/mongodb.bson/3.3.0/mongodb.bson.3.3.0.nupkg.sha512",
-    "/Users/berkayyaman/.nuget/packages/mongodb.driver/3.3.0/mongodb.driver.3.3.0.nupkg.sha512",
+    "/Users/berkayyaman/.nuget/packages/mongodb.bson/3.4.2/mongodb.bson.3.4.2.nupkg.sha512",
+    "/Users/berkayyaman/.nuget/packages/mongodb.driver/3.4.2/mongodb.driver.3.4.2.nupkg.sha512",
     "/Users/berkayyaman/.nuget/packages/newtonsoft.json/11.0.2/newtonsoft.json.11.0.2.nupkg.sha512",
     "/Users/berkayyaman/.nuget/packages/sharpcompress/0.30.1/sharpcompress.0.30.1.nupkg.sha512",
     "/Users/berkayyaman/.nuget/packages/snappier/1.0.0/snappier.1.0.0.nupkg.sha512",

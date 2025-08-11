@@ -35,7 +35,9 @@ namespace TechMobileBE.Controllers
             {
                 var response = new ApiResponse<object>(true, "Name updated successfully");
                 return Ok(response);
-            } else {
+            }
+            else
+            {
                 var errorResponse = new ApiResponse<object>(false, "Failed to update name");
                 return NotFound(errorResponse);
             }
@@ -58,10 +60,13 @@ namespace TechMobileBE.Controllers
         public async Task<IActionResult> Step4([FromBody] Step4EmailDto dto)
         {
             var success = await _service.UpdateStep4Async(dto);
-            if(success) {
+            if (success)
+            {
                 var response = new ApiResponse<object>(true, "Email updated successfully");
                 return Ok(response);
-            } else {
+            }
+            else
+            {
                 var errorResponse = new ApiResponse<object>(false, "Failed to update email");
                 return NotFound(errorResponse);
             }
@@ -71,13 +76,44 @@ namespace TechMobileBE.Controllers
         public async Task<IActionResult> Step5([FromBody] Step5PasscodeDto dto)
         {
             var success = await _service.UpdateStep5Async(dto);
-            if (success) {
+            if (success)
+            {
                 var response = new ApiResponse<object>(true, "Passcode updated successfully");
                 return Ok(response);
-            } else {
+            }
+            else
+            {
                 var errorResponse = new ApiResponse<object>(false, "Failed to update passcode");
                 return NotFound(errorResponse);
             }
+        }
+
+        
+
+        [HttpGet("{userId:length(24)}")]
+        public async Task<IActionResult> GetPersonalInfo(string userId)
+        {
+            var personalInfo = await _service.GetPersonalInfoAsync(userId);
+            if (personalInfo == null)
+            {
+                return NotFound(new ApiResponse<object>(false, "Personal info not found"));
+            }
+            var response = new ApiResidenceResponse<object>(true, "Personal info fetched success.", personalInfo);
+            return Ok(response);
+        }
+        
+
+        [HttpGet("by-email")]
+        public async Task<IActionResult> GetPersonalInfoByEmail([FromQuery] string email)
+        {
+            var personalInfo = await _service.GetPersonalInfoByEmailAsync(email);
+            if (personalInfo == null)
+            {
+                return NotFound(new ApiResponse<object>(false, "Personal info not found for this email"));
+            }
+            
+            var response = new ApiResidenceResponse<object>(true, "Personal info fetched successfully by email.", personalInfo);
+            return Ok(response);
         }
     }
 }

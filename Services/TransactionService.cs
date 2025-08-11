@@ -1,8 +1,8 @@
 using MongoDB.Driver;
+using MongoDB.Bson;
 using TechMobileBE.Models;
 using Microsoft.AspNetCore.SignalR;
 using TechMobileBE.Hubs;
-
 
 
 namespace TechMobileBE.Services
@@ -12,66 +12,145 @@ namespace TechMobileBE.Services
     {
         private readonly IMongoCollection<Transaction> _transactionCollection;
         private readonly BalanceService _balanceService;
+        private readonly PersonalInfoService _personalInfoService; // yeni ekle
 
-        public TransactionService(MongoDbService mongoDbService, BalanceService balanceService)
+        public TransactionService(
+            MongoDbService mongoDbService,
+            BalanceService balanceService,
+            PersonalInfoService personalInfoService // yeni ekle
+        )
         {
-             // Get the correct collections
+            // Get the correct collections
             _transactionCollection = mongoDbService.GetCollection<Transaction>("Transactions");
             _balanceService = balanceService;
+            _personalInfoService = personalInfoService; // yeni ekle
         }
         public async Task<Transaction> GetUserTransaction(string userId) =>
             await _transactionCollection.Find(t => t.UserId == userId)
                 .SortByDescending(t => t.CreatedAt)
+                .Limit(5)
                 .FirstOrDefaultAsync();
 
-        public async Task<Transaction> createTransactionAsync(Transaction transaction)
+        public async Task<TransactionResult> CreateTransaction(Transaction transaction)
         {
-            var type = transaction.Type.ToLower();
-            if (type is not ("deposit" or "withdraw" or "transfer"))
+            if (transaction.Amount <= 0)
             {
-                throw new ArgumentException("Invalid transaction type.");
+                return new TransactionResult
+                {
+                    Success = false,
+                    Message = "Transaction amount must be greater than zero.",
+                    Transaction = null
+                };
             }
-            transaction.CreatedAt = DateTime.UtcNow;
-            transaction.Status = TransactionStatus.Pending;
 
-            if (type == "deposit")
+            if (string.IsNullOrEmpty(transaction.ToUserId) ||
+                string.IsNullOrEmpty(transaction.ToUserName) ||
+                string.IsNullOrEmpty(transaction.ToUserEmail))
             {
-                await _balanceService.IncreaseUserBalanceAsync(transaction.UserId, transaction.Amount);
-                transaction.Status = TransactionStatus.Completed;
+                return new TransactionResult
+                {
+                    Success = false,
+                    Message = "ToUserId, ToUserName, and ToUserEmail must be provided.",
+                    Transaction = null
+                };
             }
-            else if (type == "withdraw")
+
+            // 1. Gönderici user var mı? (balance kontrolü)
+            var senderBalance = await _balanceService.GetUserBalanceAsync(transaction.UserId);
+            if (senderBalance == null)
             {
-                var userBalance = await _balanceService.GetUserBalanceAsync(transaction.UserId);
-                if (userBalance == null || userBalance.Balance < transaction.Amount)
+                return new TransactionResult
                 {
-                    throw new Exception("Insufficient balance for withdrawal.");
-                    transaction.Status = TransactionStatus.Failed;
-                }
-                await _balanceService.DecreaseUserBalanceAsync(transaction.UserId, transaction.Amount);
+                    Success = false,
+                    Message = "Sender user not found or no balance record.",
+                    Transaction = null
+                };
             }
-            else if (type == "transfer")
+
+            // 2. Alıcı user var mı? (balance kontrolü)
+            var receiverBalance = await _balanceService.GetUserBalanceAsync(transaction.ToUserId);
+            if (receiverBalance == null)
             {
-                if (transaction.ToUserId == null)
+                return new TransactionResult
                 {
-                    throw new ArgumentException("ToUserId must be provided for transfer transactions.");
-                }
-                var senderBalance = await _balanceService.GetUserBalanceAsync(transaction.UserId);
-                if (senderBalance == null || senderBalance.Balance < transaction.Amount)
-                {
-                    throw new Exception("Insufficient balance for transfer.");
-                    transaction.Status = TransactionStatus.Failed;
-                }
-                else
-                {
-                    await _balanceService.DecreaseUserBalanceAsync(transaction.UserId, transaction.Amount);
-                    await _balanceService.IncreaseUserBalanceAsync(transaction.ToUserId, transaction.Amount);
-                    transaction.Status = TransactionStatus.Completed;
-                }
+                    Success = false,
+                    Message = "Receiver user not found or no balance record.",
+                    Transaction = null
+                };
             }
+
+            // 3. Alıcı bilgileri PersonalInfoService ile kontrol et
+            var receiverPersonalInfo = await _personalInfoService.GetPersonalInfoAsync(transaction.ToUserId);
+            Console.WriteLine($"Tüm Bilgiler: {System.Text.Json.JsonSerializer.Serialize(receiverPersonalInfo)}");
+            if (receiverPersonalInfo == null)
+            {
+                return new TransactionResult
+                {
+                    Success = false,
+                    Message = "Receiver personal info not found.",
+                    Transaction = null
+                };
+            }
+            if (!string.Equals(receiverPersonalInfo.UserName, transaction.ToUserName, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(receiverPersonalInfo.Email, transaction.ToUserEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                return new TransactionResult
+                {
+                    Success = false,
+                    Message = "Receiver information does not match with userId.",
+                    Transaction = null
+                };
+            }
+
+            // 4. Göndericinin bakiyesi yeterli mi?
+            if (senderBalance.Balance < transaction.Amount)
+            {
+                return new TransactionResult
+                {
+                    Success = false,
+                    Message = "Insufficient balance.",
+                    Transaction = null
+                };
+            }
+
+            // Transaction işlemleri öncesi Id ataması
+            if (string.IsNullOrEmpty(transaction.Id))
+            {
+                transaction.Id = ObjectId.GenerateNewId().ToString();
+            }
+            
+            transaction.Currency ??= "USD";
+            transaction.Status = TransactionStatus.Pending;
+            transaction.CreatedAt = DateTime.UtcNow;
+
+            // Insert the transaction into the database
             await _transactionCollection.InsertOneAsync(transaction);
-            return transaction;
+
+            // Update the sender's balance (subtract)
+            await _balanceService.DecreaseUserBalanceAsync(transaction.UserId, transaction.Amount);
+
+            // Update the receiver's balance (add)
+            await _balanceService.IncreaseUserBalanceAsync(transaction.ToUserId, transaction.Amount);
+
+            // Update transaction status to Completed
+            var update = Builders<Transaction>.Update.Set(t => t.Status, TransactionStatus.Completed);
+            await _transactionCollection.UpdateOneAsync(
+                t => t.Id == transaction.Id,
+                update
+            );
+
+            // Update the transaction object in memory as well
+            transaction.Status = TransactionStatus.Completed;
+
+            return new TransactionResult
+            {
+                Success = true,
+                Message = "Transaction created successfully.",
+                Transaction = transaction
+            };
         }
 
+        
     }
         
         

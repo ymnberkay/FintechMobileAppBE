@@ -28,6 +28,6 @@ public class AuthController : ControllerBase
     {
         var result = await _service.LoginAsync(dto.PhoneNumber, dto.Password);
 
-        return Ok(result); // Başarılı veya başarısız aynı model ile dönüyor
+        return Ok(result);
     }
 }

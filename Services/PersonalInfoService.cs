@@ -17,14 +17,17 @@ namespace TechMobileBE.Services
 
         public async Task<string> CreateResidenceAsync(Step1ResidenceDto dto)
         {
-            var info = new PersonalInfo
-            {
-                Id = dto.UserId, // userId artık _id olarak atanıyor
-                Residence = dto.Residence
-            };
+            var update = Builders<PersonalInfo>.Update
+                .Set(x => x.Id, dto.UserId)  // Set the Id explicitly
+                .Set(x => x.Residence, dto.Residence);
+            
+            var result = await _collection.UpdateOneAsync(
+                x => x.Id == dto.UserId,
+                update,
+                new UpdateOptions { IsUpsert = true }  // Changed to true to create if not exists
+            );
 
-            await _collection.InsertOneAsync(info);
-            return info.Id!;
+            return dto.UserId;
         }
 
         public async Task<bool> UpdateStep2Async(Step2NameDto dto)
@@ -72,5 +75,53 @@ namespace TechMobileBE.Services
             var userResult = await _collection.UpdateOneAsync(x => x.Id == dto.Id, userUpdate);
             return result.ModifiedCount > 0;
         }
+
+        public async Task<PersonalInfoDto?> GetPersonalInfoAsync(string userId)
+        {
+            var projection = Builders<PersonalInfo>.Projection
+                .Include(x => x.Id)
+                .Include(x => x.Residence)
+                .Include(x => x.FullName)
+                .Include(x => x.UserName)
+                .Include(x => x.DateOfBirth)
+                .Include(x => x.AddressLine)
+                .Include(x => x.City)
+                .Include(x => x.PostCode)
+                .Include(x => x.Email);
+
+            var filter = Builders<PersonalInfo>.Filter.Eq(x => x.Id, userId);
+
+            var result = await _collection
+                .Find(filter)
+                .Project<PersonalInfoDto>(projection)
+                .FirstOrDefaultAsync();
+
+            return result;
+        }
+        // This method retrieves personal information by email
+        public async Task<PersonalInfoDto?> GetPersonalInfoByEmailAsync(string email)
+        {
+            var projection = Builders<PersonalInfo>.Projection
+                .Include(x => x.Id)
+                .Include(x => x.Residence)
+                .Include(x => x.FullName)
+                .Include(x => x.UserName)
+                .Include(x => x.DateOfBirth)
+                .Include(x => x.AddressLine)
+                .Include(x => x.City)
+                .Include(x => x.PostCode)
+                .Include(x => x.Email);
+
+            var filter = Builders<PersonalInfo>.Filter.Eq(x => x.Email, email);
+
+            var result = await _collection
+                .Find(filter)
+                .Project<PersonalInfoDto>(projection)
+                .FirstOrDefaultAsync();
+
+            return result;
+        }
+
+
     }
 }
