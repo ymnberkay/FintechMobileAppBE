@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TechMobileBE")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a9b226dc0e3841e802dfd3105bf8f53534d797c9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+61370df2f6907a9d76bc4beca715a3b68faabbea")]
 [assembly: System.Reflection.AssemblyProductAttribute("TechMobileBE")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TechMobileBE")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -20,12 +20,19 @@ namespace TechMobileBE.Controllers
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetUserTransaction(string userId)
         {
-            var transaction = await _transactionService.GetUserTransaction(userId);
-            if (transaction == null)
+            var transactions = await _transactionService.GetUserTransaction(userId);
+
+            if (transactions == null || !transactions.Any())
             {
                 return NotFound(new ApiResponse<object>(false, "Personal transactions not found."));
             }
-            var response = new ApiResidenceResponse<object>(true, "Personal transactions fetched successfully.", transaction);
+
+            var response = new ApiGetTransactionResponse<object>(
+                success: true, 
+                message: "Personal transactions fetched successfully.", 
+                data: transactions
+            );
+
             return Ok(response);
         }
         

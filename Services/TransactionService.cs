@@ -25,11 +25,11 @@ namespace TechMobileBE.Services
             _balanceService = balanceService;
             _personalInfoService = personalInfoService; // yeni ekle
         }
-        public async Task<Transaction> GetUserTransaction(string userId) =>
+        public async Task<List<Transaction>> GetUserTransaction(string userId) =>
             await _transactionCollection.Find(t => t.UserId == userId)
                 .SortByDescending(t => t.CreatedAt)
                 .Limit(5)
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
         public async Task<TransactionResult> CreateTransaction(Transaction transaction)
         {
@@ -39,7 +39,7 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "Transaction amount must be greater than zero.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
@@ -51,7 +51,7 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "ToUserId, ToUserName, and ToUserEmail must be provided.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
@@ -63,7 +63,7 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "Sender user not found or no balance record.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
@@ -75,20 +75,19 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "Receiver user not found or no balance record.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
             // 3. Alıcı bilgileri PersonalInfoService ile kontrol et
             var receiverPersonalInfo = await _personalInfoService.GetPersonalInfoAsync(transaction.ToUserId);
-            Console.WriteLine($"Tüm Bilgiler: {System.Text.Json.JsonSerializer.Serialize(receiverPersonalInfo)}");
             if (receiverPersonalInfo == null)
             {
                 return new TransactionResult
                 {
                     Success = false,
                     Message = "Receiver personal info not found.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
             if (!string.Equals(receiverPersonalInfo.UserName, transaction.ToUserName, StringComparison.OrdinalIgnoreCase) &&
@@ -98,7 +97,7 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "Receiver information does not match with userId.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
@@ -109,7 +108,7 @@ namespace TechMobileBE.Services
                 {
                     Success = false,
                     Message = "Insufficient balance.",
-                    Transaction = null
+                    Transaction = transaction
                 };
             }
 
