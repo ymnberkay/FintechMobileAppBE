@@ -11,19 +11,21 @@ namespace TechMobileBE.Services
     public class TransactionService
     {
         private readonly IMongoCollection<Transaction> _transactionCollection;
+        private readonly IMongoCollection<MoneyRequest> _moneyRequestCollection;
         private readonly BalanceService _balanceService;
-        private readonly PersonalInfoService _personalInfoService; // yeni ekle
+        private readonly PersonalInfoService _personalInfoService;
 
         public TransactionService(
             MongoDbService mongoDbService,
             BalanceService balanceService,
-            PersonalInfoService personalInfoService // yeni ekle
+            PersonalInfoService personalInfoService
         )
         {
             // Get the correct collections
             _transactionCollection = mongoDbService.GetCollection<Transaction>("Transactions");
+            _moneyRequestCollection = mongoDbService.GetCollection<MoneyRequest>("TransactionRequests");
             _balanceService = balanceService;
-            _personalInfoService = personalInfoService; // yeni ekle
+            _personalInfoService = personalInfoService;
         }
         public async Task<List<Transaction>> GetUserTransaction(string userId) =>
             await _transactionCollection.Find(t => t.UserId == userId)
@@ -117,7 +119,7 @@ namespace TechMobileBE.Services
             {
                 transaction.Id = ObjectId.GenerateNewId().ToString();
             }
-            
+
             transaction.Currency ??= "USD";
             transaction.Status = TransactionStatus.Pending;
             transaction.CreatedAt = DateTime.UtcNow;
@@ -148,10 +150,160 @@ namespace TechMobileBE.Services
                 Transaction = transaction
             };
         }
+        public async Task<RequestTransactionResult> RequestTransaction(MoneyRequest request)
+        {
+            if (request.Amount <= 0)
+            {
+                return new RequestTransactionResult
+                {
+                    Success = false,
+                    Message = "Request amount must be greater than zero.",
+                    Transaction = request
+                };
+            }
 
-        
+            // Check if target user exists
+            var requestedFromUser = await _personalInfoService.GetPersonalInfoAsync(request.ToUserId);
+            if (requestedFromUser == null)
+            {
+                return new RequestTransactionResult
+                {
+                    Success = false,
+                    Message = "Requested user not found.",
+                    Transaction = request
+                };
+            }
+
+            request.Id = ObjectId.GenerateNewId().ToString();
+            request.Status = (RequestTransactionStatus)MoneyRequestStatus.Pending;
+            request.CreatedAt = DateTime.UtcNow;
+            request.Currency ??= "USD";
+
+            await _moneyRequestCollection.InsertOneAsync(request);
+
+            return new RequestTransactionResult
+            {
+                Success = true,
+                Message = "Money request sent successfully.",
+                Transaction = request
+            };
+        }
+
+        public async Task<RequestTransactionResult> HandleMoneyRequest(string requestId, bool isApproved)
+        {
+            var request = await _moneyRequestCollection
+                .Find(r => r.Id == requestId && r.Status == (RequestTransactionStatus)MoneyRequestStatus.Pending)
+                .FirstOrDefaultAsync();
+
+            if (request == null)
+            {
+                return new RequestTransactionResult
+                {
+                    Success = false,
+                    Message = "Request not found or already processed.",
+                    Transaction = null
+                };
+            }
+
+            if (isApproved)
+            {
+                var userBalance = await _balanceService.GetUserBalanceAsync(request.ToUserId);
+                if (userBalance == null || userBalance.Balance < request.Amount)
+                {
+                    return new RequestTransactionResult
+                    {
+                        Success = false,
+                        Message = "Insufficient balance to approve request.",
+                        Transaction = request
+                    };
+                }
+
+                // Create transfer transaction
+                var transaction = new Transaction
+                {
+                    UserId = request.UserId,
+                    ToUserId = request.ToUserId,
+                    Amount = request.Amount,
+                    Currency = request.Currency,
+                    Type = TransactionType.Payment.ToString(),
+                    Status = TransactionStatus.Pending
+                };
+
+                var transferResult = await CreateTransaction(transaction);
+                if (!transferResult.Success)
+                {
+                    return new RequestTransactionResult
+                    {
+                        Success = false,
+                        Message = transferResult.Message,
+                        Transaction = request
+                    };
+                }
+
+                // Update request status
+                request.Status = (RequestTransactionStatus)MoneyRequestStatus.Approved;
+                request.UpdatedAt = DateTime.UtcNow;
+                request.Id = transaction.Id;
+
+                var update = Builders<MoneyRequest>.Update
+                    .Set("Status", MoneyRequestStatus.Approved)
+                    .Set("UpdatedAt", DateTime.UtcNow)
+                    .Set("Id", transaction.Id);
+
+                await _moneyRequestCollection.UpdateOneAsync(r => r.Id == requestId, update);
+            }
+            else
+            {
+                request.Status = (RequestTransactionStatus)MoneyRequestStatus.Rejected;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                var update = Builders<MoneyRequest>.Update
+                    .Set("Status", MoneyRequestStatus.Rejected)
+                    .Set("UpdatedAt", DateTime.UtcNow);
+
+                await _moneyRequestCollection.UpdateOneAsync(r => r.Id == requestId, update);
+            }
+
+            return new RequestTransactionResult
+            {
+                Success = true,
+                Message = isApproved ? "Money request approved and transferred." : "Money request rejected.",
+                Transaction = request
+            };
+        }
+
+        public async Task<List<GetMoneyRequestsResponse>> GetUserRequestsAsync(string userId)
+        {
+            var filter = Builders<MoneyRequest>.Filter.Eq(r => r.ToUserId, userId) &
+                         Builders<MoneyRequest>.Filter.Eq(r => r.Type, "MoneyRequest");
+
+            var requests = await _moneyRequestCollection.Find(filter).ToListAsync();
+            var result = new List<GetMoneyRequestsResponse>();
+
+            foreach (var req in requests)
+            {
+
+                var personalInfo = await _personalInfoService.GetPersonalInfoAsync(req.UserId);
+
+                result.Add(new GetMoneyRequestsResponse
+                {
+                    Id = req.Id!,
+                    ReceiverUserId = req.ToUserId,
+                    Type = req.Type,
+                    Amount = req.Amount,
+                    Currency = req.Currency,
+                    SenderUserId = req.UserId,
+                    SenderUserName = personalInfo?.UserName,
+                    SenderUserEmail = personalInfo?.Email
+                });
+            
+        }
+            return result;
+        }
+
+
     }
-        
-        
-    
+
+
+
 }

@@ -3,6 +3,7 @@ using TechMobileBE.Services;
 using TechMobileBE.Models;
 using TechMobileBE.DTOs;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace TechMobileBE.Controllers
 {
@@ -28,21 +29,25 @@ namespace TechMobileBE.Controllers
             }
 
             var response = new ApiGetTransactionResponse<object>(
-                success: true, 
-                message: "Personal transactions fetched successfully.", 
+                success: true,
+                message: "Personal transactions fetched successfully.",
                 data: transactions
             );
 
             return Ok(response);
         }
-        
+
 
         [HttpPost]
         public async Task<IActionResult> CreateTransaction([FromBody] Transaction transactionDto)
         {
             if (transactionDto == null)
             {
-                return BadRequest("Invalid transaction data.");
+                return BadRequest(new ApiGetTransactionResponse<object>(
+                    success: false,
+                    message: "Invalid transaction data.",
+                    data: null
+                ));
             }
 
             var transaction = new Transaction
@@ -58,9 +63,84 @@ namespace TechMobileBE.Controllers
 
             var result = await _transactionService.CreateTransaction(transaction);
             if (!result.Success)
-                return BadRequest(result.Message);
+            {
+                return BadRequest(new ApiGetTransactionResponse<Transaction>(
+                    success: false,
+                    message: result.Message,
+                    data: null
+                ));
+            }
 
-            return CreatedAtAction(nameof(GetUserTransaction), new { userId = result.Transaction.UserId }, result.Transaction);
+            var response = new ApiGetTransactionResponse<Transaction>(
+                success: true,
+                message: "Transaction created successfully.",
+                data: result.Transaction
+            );
+
+            return Created($"api/transaction/{result.Transaction.Id}", response);
         }
+
+
+        [HttpGet("getRequests/{userID}")]
+        public async Task<IActionResult> GetUserRequests(string userId)
+        {
+            var result = await _transactionService.GetUserRequestsAsync(userId);
+            if (result == null || !result.Any())
+            {
+                return NotFound(new ApiResponse<object>(false, "User Requests not found."));
+            }
+
+            var response = new ApiGetTransactionResponse<List<GetMoneyRequestsResponse>>(
+                success: true,
+                message: "User requests fetched successfully.",
+                data: result
+            );
+            return Ok(response);
+
+        }
+
+        [HttpPost("RequestMoney")]
+        public async Task<IActionResult> CreateMoneyRequest([FromBody] MoneyRequest moneyRequestDto)
+        {
+            if (moneyRequestDto == null)
+            {
+                return BadRequest(new ApiGetTransactionResponse<object>(
+                    success: false,
+                    message: "Invalid money request data.",
+                    data: null
+                ));
+            }
+
+            var moneyRequest = new MoneyRequest
+            {
+                UserId = moneyRequestDto.UserId,
+                Type = moneyRequestDto.Type,
+                Amount = moneyRequestDto.Amount,
+                Currency = moneyRequestDto.Currency,
+                ToUserId = moneyRequestDto.ToUserId,
+                ToUserName = moneyRequestDto.ToUserName,
+                ToUserEmail = moneyRequestDto.ToUserEmail,
+            };
+
+            var result = await _transactionService.RequestTransaction(moneyRequest);
+            if (!result.Success)
+            {
+                return BadRequest(new ApiGetTransactionResponse<MoneyRequest>(
+                    success: false,
+                    message: result.Message,
+                    data: null
+                ));
+            }
+
+            var response = new ApiGetTransactionResponse<MoneyRequest>(
+                success: true,
+                message: "Money request created successfully.",
+                data: result.Transaction
+            );
+
+            return Created($"api/transaction/request/{result.Transaction.Id}", response);
+        }
+        
+
     }
 }
