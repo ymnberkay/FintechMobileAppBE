@@ -25,13 +25,14 @@ namespace TechMobileBE.Services
             try
             {
                 var existingUser = await _collection.Find(u => u.PhoneNumber == dto.PhoneNumber).FirstOrDefaultAsync();
-                if (existingUser != null){
-                return new AuthResponse
+                if (existingUser != null)
                 {
-                    Success = false,
-                    Message = "User with this phone number already exists."
-                };
-            }
+                    return new AuthResponse
+                    {
+                        Success = false,
+                        Message = "User with this phone number already exists."
+                    };
+                }
 
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
@@ -85,6 +86,39 @@ namespace TechMobileBE.Services
                 CreateDate = user.CreateDate
             };
         }
+
+        public async Task<AuthResponse> LoginWithPasscodeAsync(string phoneNumber, string passcode)
+        {
+            var user = await _collection.Find(u => u.PhoneNumber == phoneNumber).FirstOrDefaultAsync();
+
+            if (user == null || user.Passcode == null || !BCrypt.Net.BCrypt.Verify(passcode, user.Passcode))
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Invalid phone number or passcode."
+                };
+            }
+            var token = GenerateJwtToken(user);
+            return new AuthResponse
+            {
+                Success = true,
+                UserId = user.Id,
+                PhoneNumber = user.PhoneNumber,
+                Token = GenerateJwtToken(user),
+                CreateDate = user.CreateDate
+            };
+        }
+
+        // Add validation method
+        public bool IsValidPasscode(string passcode)
+        {
+            // Passcode should be 6 digits
+            return !string.IsNullOrEmpty(passcode) &&
+                   passcode.Length == 6 &&
+                   passcode.All(char.IsDigit);
+        }
+
 
         private string GenerateJwtToken(User user)
         {

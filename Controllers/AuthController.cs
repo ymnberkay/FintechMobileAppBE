@@ -30,4 +30,13 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+
+    [HttpPost("login-passcode")]
+    public async Task<IActionResult> LoginWithPasscode([FromBody] LoginPasscodeDto dto)
+    {
+        var result = await _service.LoginWithPasscodeAsync(dto.PhoneNumber, dto.Passcode);
+        return Ok(result);
+    }
+
 }
