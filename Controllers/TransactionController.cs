@@ -141,6 +141,53 @@ namespace TechMobileBE.Controllers
             return Created($"api/transaction/request/{result.Transaction.Id}", response);
         }
         
+        [HttpPut("handle-request")]
+        public async Task<IActionResult> HandleMoneyRequest([FromBody] HandleMoneyRequestDto request)
+        {
+            if (string.IsNullOrEmpty(request.RequestId))
+            {
+                return BadRequest(new ApiGetTransactionResponse<object>(
+                    success: false,
+                    message: "Request ID cannot be empty.",
+                    data: null
+                ));
+            }
 
+            try
+            {
+                Console.WriteLine($"Processing request ID: {request.RequestId}, Approve: {request.Approve}");
+                
+                var result = await _transactionService.HandleMoneyRequest(request.RequestId, request.Approve);
+
+                Console.WriteLine($"Service result - Success: {result?.Success}, Message: {result?.Message}");
+
+                if (!result.Success)
+                {
+                    return BadRequest(new ApiGetTransactionResponse<MoneyRequest>(
+                        success: false,
+                        message: result.Message,
+                        data: result.Transaction
+                    ));
+                }
+
+                return Ok(new ApiGetTransactionResponse<MoneyRequest>(
+                    success: true,
+                    message: request.Approve ? "Money request approved and transferred successfully." 
+                                           : "Money request rejected successfully.",
+                    data: result.Transaction
+                ));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandleMoneyRequest: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                
+                return StatusCode(500, new ApiGetTransactionResponse<object>(
+                    success: false,
+                    message: $"An error occurred: {ex.Message}",
+                    data: null
+                ));
+            }
+        }
     }
 }
